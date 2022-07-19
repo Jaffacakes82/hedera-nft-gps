@@ -1,19 +1,37 @@
 import type { LoaderFunction } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, useLoaderData } from "@remix-run/react";
+import {
+    Link,
+    Outlet,
+    useLoaderData,
+} from "@remix-run/react";
 
+import { getSession, commitSession } from "~/session.server";
 import { getPosts } from "~/models/post.server";
 
 type LoaderData = {
     posts: Awaited<ReturnType<typeof getPosts>>;
+    message: string
 };
 
-export const loader: LoaderFunction = async () => {
-    return json({ posts: await getPosts() });
+export const loader: LoaderFunction = async ({ request }) => {
+    console.warn("In admin loader")
+    const session = await getSession(request);
+
+    console.warn("Session", session);
+    const message = session.get("globalMessage") || null;
+    console.warn("Message", message);
+
+    return json({ posts: await getPosts(), message: message }, {
+        headers: {
+            // only necessary with cookieSessionStorage
+            "Set-Cookie": await commitSession(session),
+        },
+    });
 };
 
 export default function PostAdmin() {
-    const { posts } = useLoaderData() as unknown as LoaderData;
+    const { posts, message } = useLoaderData() as unknown as LoaderData;
     return (
         <div className="mx-auto max-w-4xl">
             <h1 className="my-6 mb-2 border-b-2 text-center text-3xl">
@@ -35,7 +53,8 @@ export default function PostAdmin() {
                     </ul>
                 </nav>
                 <main className="col-span-4 md:col-span-3">
-                    ...
+                    <span>{message}</span>
+                    <Outlet />
                 </main>
             </div>
         </div>
